@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+            overflow: auto;
+            max-height: 500px;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+        .success {
+            color: green;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>JSON File Test</h1>
+    <div id="status">Loading...</div>
+    <h2>File Information:</h2>
+    <pre id="fileInfo"></pre>
+    <h2>JSON Content (first 1000 characters):</h2>
+    <pre id="content"></pre>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const statusEl = document.getElementById('status');
+            const fileInfoEl = document.getElementById('fileInfo');
+            const contentEl = document.getElementById('content');
+            
+            try {
+                // 尝试加载JSON文件
+                const response = await fetch('criminal_cases_facts.json');
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                // 显示文件信息
+                const fileInfo = {
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: Object.fromEntries([...response.headers.entries()]),
+                    type: response.type,
+                    url: response.url
+                };
+                
+                fileInfoEl.textContent = JSON.stringify(fileInfo, null, 2);
+                
+                // 读取内容
+                const text = await response.text();
+                
+                // 尝试解析JSON
+                const json = JSON.parse(text);
+                
+                // 显示内容预览
+                contentEl.textContent = text.substring(0, 1000) + '...';
+                
+                // 更新状态
+                statusEl.textContent = `✅ 成功加载JSON文件 (${text.length} 字节)`;
+                statusEl.className = 'success';
+                
+            } catch (error) {
+                // 显示错误
+                statusEl.textContent = `❌ 错误: ${error.message}`;
+                statusEl.className = 'error';
+                fileInfoEl.textContent = error.stack || error.toString();
+            }
+        });
+    </script>
+</body>
+</html> 

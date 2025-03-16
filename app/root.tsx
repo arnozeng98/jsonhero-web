@@ -8,7 +8,10 @@ import {
   useLoaderData,
   useLocation,
 } from "@remix-run/react";
-import type { LoaderFunction, MetaFunction } from "@remix-run/cloudflare-workers";
+import type { 
+  LoaderFunction, 
+  MetaFunction 
+} from "remix";
 import clsx from "clsx";
 import {
   NonFlashOfWrongThemeEls,
@@ -19,23 +22,13 @@ import {
 
 import openGraphImage from "~/assets/images/opengraph.png";
 
-export const meta: MetaFunction = ({ location }) => {
+export const meta: MetaFunction = () => {
   const description =
-    "JSON Hero makes reading and understand JSON files easy by giving you a clean and beautiful UI packed with extra features.";
+    "Criminal Cases Data Viewer provides a clean and beautiful interface for browsing and understanding criminal case JSON data.";
   return {
-    title: "JSON Hero - a beautiful JSON viewer for the web",
+    title: "Criminal Cases Data Viewer",
     viewport: "width=device-width,initial-scale=1",
     description,
-    "og:image": `https://jsonhero.io${openGraphImage}`,
-    "og:url": `https://jsonhero.io${location.pathname}`,
-    "og:title": "JSON Hero - A beautiful JSON viewer",
-    "og:description": description,
-    "twitter:image": `https://jsonhero.io${openGraphImage}`,
-    "twitter:card": "summary_large_image",
-    "twitter:creator": "@json_hero",
-    "twitter:site": "@json_hero",
-    "twitter:title": "JSON Hero",
-    "twitter:description": description,
   };
 };
 
@@ -55,7 +48,7 @@ export type LoaderData = {
   themeOverride?: Theme;
 };
 
-export const loader: LoaderFunction = async ({ request }) => {
+export const loader: LoaderFunction = async ({ request }: { request: Request }) => {
   const themeSession = await getThemeSession(request);
   const starCount = await getStarCount();
   const themeOverride = getThemeFromRequest(request);
@@ -104,13 +97,10 @@ export default function AppWithProviders() {
 
   const location = useLocation();
 
-  // Force dark mode on the homepage
-  const forceDarkMode = location.pathname === "/";
-
   return (
     <ThemeProvider
       specifiedTheme={theme}
-      themeOverride={forceDarkMode ? "dark" : themeOverride}
+      themeOverride={themeOverride}
     >
       <PreferencesProvider>
         <StarCountProvider starCount={starCount}>
