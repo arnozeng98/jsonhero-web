@@ -16,7 +16,7 @@ import { ExtraLargeTitle } from "~/components/Primitives/ExtraLargeTitle";
 import { PageNotFoundTitle } from "~/components/Primitives/PageNotFoundTitle";
 import { SmallSubtitle } from "~/components/Primitives/SmallSubtitle";
 import { Logo } from "~/components/Icons/Logo";
-import { Outlet } from "@remix-run/react";
+import { Outlet, useLoaderData as remixUseLoaderData } from "@remix-run/react";
 
 // 自定义的redirect函数
 function redirect(url: string, init: any = {}): Response {
@@ -81,97 +81,144 @@ function useParams(): Record<string, string> {
   return params;
 }
 
-// 自定义的useLoaderData函数
+// 修复服务器端的useLoaderData函数，确保返回实际数据
 function useLoaderData<T>(): T {
-  // 从window对象中获取预加载的数据
-  if (typeof window === "undefined") {
-    // 在服务器端渲染时，返回包含默认文档和解析后JSON的对象
-    const sampleJson = [
-      {
-        "Title": "R. v. Primeau",
-        "Collection": "Supreme Court Judgments",
-        "Date": "1995-04-13",
-        "Neutral Citation": null,
-        "Case Number": "23613",
-        "Judges": "Lamer, Antonio; La Forest, Gérard V.; L'Heureux-Dubé, Claire; Sopinka, John; Gonthier, Charles Doherty; Cory, Peter deCarteret; McLachlin, Beverley; Iacobucci, Frank; Major, John C.",
-        "On Appeal From": "Saskatchewan",
-        "Subjects": "Constitutional law\nCourts\nCriminal law",
-        "Statutes and Regulations Cited": [
-          "Criminal Code , R.S.C., 1985, c. C‑46 , s. 784(1) ."
-        ],
-        "Facts": "II.The appellant, Dorne James Primeau, was jointly charged along with Rory Michael Cornish with the first degree murder of Calvin Aubichon. On a separate information, Jerry Allan Lefort was charged with the same murder."
-      },
-      {
-        "Title": "R. v. Feeney",
-        "Collection": "Supreme Court Judgments",
-        "Date": "1997-05-22",
-        "Neutral Citation": null,
-        "Case Number": "24756",
-        "Facts": "Sample facts for this case"
+  try {
+    // 尝试使用Remix原生的useLoaderData
+    console.log("Attempting to use Remix's useLoaderData");
+    const data = remixUseLoaderData();
+    
+    if (data) {
+      console.log("Successfully retrieved data using Remix's useLoaderData");
+      console.log("Data has doc:", data?.doc ? "Yes" : "No");
+      console.log("Data has json:", data?.json ? "Yes" : "No");
+      
+      if (data?.json && Array.isArray(data.json)) {
+        console.log(`JSON array contains ${data.json.length} items`);
       }
-    ];
+      
+      return data as T;
+    } else {
+      console.log("Remix's useLoaderData returned empty data");
+    }
+  } catch (remixError) {
+    console.error("Error using Remix's useLoaderData:", remixError);
+  }
+  
+  // 如果Remix的useLoaderData失败，使用我们的自定义逻辑
+  console.log("Fallback to custom useLoaderData implementation");
+  
+  // 检查环境
+  const isServer = typeof window === "undefined";
+  console.log(`Running in ${isServer ? "server" : "browser"} environment`);
+  
+  if (isServer) {
+    console.log("Server-side rendering - creating default data");
+    
+    // 这里我们需要一个有效的默认值
+    const defaultDoc = {
+      id: "criminal-cases",
+      type: "raw",
+      contents: "[]",
+      title: "Criminal Cases Data Viewer",
+      readOnly: true,
+    };
     
     return {
-      doc: {
-        id: "criminal-cases",
-        type: "raw",
-        contents: JSON.stringify(sampleJson, null, 2),
-        title: "Criminal Cases Data Viewer",
-        readOnly: true,
-      },
-      json: sampleJson
+      doc: defaultDoc,
+      json: []
     } as T;
   }
   
-  // 客户端简化逻辑 - 直接输出一些调试信息
-  console.log("Client-side useLoaderData called");
+  // 客户端渲染时，尝试从window全局对象获取数据
+  console.log("Client-side data retrieval");
   console.log("Window location:", window.location.pathname);
   
   try {
-    // 尝试直接从window._remixRouteData获取数据
+    // 检查window.__remixRouteData是否存在
     // @ts-ignore
     if (window.__remixRouteData) {
       // @ts-ignore
-      const data = window.__remixRouteData;
-      console.log("Found remixRouteData:", Object.keys(data));
+      const routeData = window.__remixRouteData;
+      console.log("Found __remixRouteData:", Object.keys(routeData));
       
-      // 返回第一个找到的数据
+      // 遍历所有routes，寻找包含doc的数据
       // @ts-ignore
       for (const key in window.__remixRouteData) {
         // @ts-ignore
-        const routeData = window.__remixRouteData[key];
-        if (routeData && routeData.doc) {
-          console.log("Found route data with doc for key:", key);
-          return routeData as T;
+        const data = window.__remixRouteData[key];
+        console.log(`Checking route "${key}":`, 
+          data ? `Has data: ${Object.keys(data).join(", ")}` : "No data");
+        
+        if (data && data.doc) {
+          console.log(`Found document data in route "${key}"`);
+          return data as T;
         }
       }
     }
     
-    // 使用默认数据
-    console.log("No route data found, using default data");
-    const sampleJson = [
-      {
-        "Title": "R. v. Primeau (Client)",
-        "Collection": "Supreme Court Judgments",
-        "Date": "1995-04-13",
-        "Facts": "Client-side fallback data"
+    // 如果没有找到路由数据，尝试从window对象获取
+    // @ts-ignore
+    if (window.__remixContext && window.__remixContext.routeData) {
+      console.log("Trying __remixContext.routeData");
+      // @ts-ignore
+      const routeData = window.__remixContext.routeData;
+      console.log("Found routeData keys:", Object.keys(routeData));
+      
+      // 尝试找到当前路由的数据
+      const currentPath = window.location.pathname;
+      
+      // 打印所有路由数据
+      Object.keys(routeData).forEach(key => {
+        console.log(`Route "${key}":`, routeData[key] ? "Has data" : "No data");
+      });
+      
+      // 尝试找到匹配的路由
+      const routeId = Object.keys(routeData).find(key => 
+        currentPath.includes(key.replace(/^routes\//, "").replace(/\$/g, ""))
+      );
+      
+      if (routeId) {
+        console.log(`Found matching route "${routeId}" for path "${currentPath}"`);
+        return routeData[routeId] as T;
       }
-    ];
+    }
+    
+    console.error("======= DATA LOADING FAILURE =======");
+    console.log("No route data found in any source");
+    console.log("Current URL:", window.location.href);
+    console.log("Creating fallback data to prevent crash");
     
     return {
       doc: {
-        id: "criminal-cases",
-        type: "raw",
-        contents: JSON.stringify(sampleJson, null, 2),
-        title: "Criminal Cases Data Viewer",
-        readOnly: true,
+        id: "fallback-criminal-cases",
+        type: "raw", 
+        contents: JSON.stringify([{
+          "Title": "Data Loading Error", 
+          "Error": "Failed to load data from server",
+          "URL": window.location.href
+        }]),
+        title: "Criminal Cases - Error Loading Data",
+        readOnly: true
       },
-      json: sampleJson
+      json: [{
+        "Title": "Data Loading Error", 
+        "Error": "Failed to load data from server",
+        "URL": window.location.href
+      }]
     } as T;
-  } catch (e) {
-    console.error("Error in useLoaderData:", e);
-    // 返回空对象而不是undefined
-    return {} as T;
+  } catch (error) {
+    console.error("Critical error in useLoaderData:", error);
+    return {
+      doc: {
+        id: "error-fallback",
+        type: "raw",
+        contents: JSON.stringify([{"Error": `${error}`}]),
+        title: "Error",
+        readOnly: true
+      },
+      json: [{"Error": `${error}`}]
+    } as T;
   }
 }
 
@@ -311,125 +358,110 @@ export const meta = ({
 };
 
 export default function JsonDocumentRoute() {
-  const loaderData = useLoaderData<LoaderData>();
+  console.log("JsonDocumentRoute component rendering");
   
-  // 添加客户端调试逻辑
-  if (typeof window !== "undefined") {
-    console.log("Running JsonDocumentRoute in browser");
-    console.log("loaderData available:", loaderData ? "yes" : "no");
+  try {
+    // 获取数据
+    const data = useLoaderData<{ doc: JSONDocument; json: any }>();
     
-    // 尝试从全局变量中获取数据
-    if (window.__DEBUG_DATA) {
-      console.log("Debug data:", window.__DEBUG_DATA);
-      
-      // 将调试信息添加到页面中
-      setTimeout(() => {
-        try {
-          const debugDiv = document.createElement("div");
-          debugDiv.style.position = "fixed";
-          debugDiv.style.bottom = "10px";
-          debugDiv.style.right = "10px";
-          debugDiv.style.padding = "10px";
-          debugDiv.style.background = "rgba(0,0,0,0.7)";
-          debugDiv.style.color = "white";
-          debugDiv.style.zIndex = "9999";
-          debugDiv.style.maxWidth = "500px";
-          debugDiv.style.maxHeight = "300px";
-          debugDiv.style.overflow = "auto";
-          debugDiv.style.fontSize = "12px";
-          debugDiv.style.fontFamily = "monospace";
-          
-          debugDiv.innerHTML = `
-            <div>Page loaded at: ${new Date().toISOString()}</div>
-            <div>Data available: ${loaderData ? "yes" : "no"}</div>
-            <div>URL: ${window.location.href}</div>
-            <div>Doc ID: ${loaderData?.doc?.id || "missing"}</div>
-          `;
-          
-          document.body.appendChild(debugDiv);
-        } catch (e) {
-          console.error("Failed to add debug div:", e);
-        }
-      }, 1000);
+    // 添加更多数据检查
+    console.log("Data retrieved in component:", 
+      data ? `Has data: ${Object.keys(data).join(", ")}` : "No data");
+    
+    if (data?.doc) {
+      console.log("Document ID:", data.doc.id);
+      console.log("Document type:", data.doc.type);
+      console.log("Document readOnly:", data.doc.readOnly);
+      console.log("Document content length:", 
+        data.doc.contents ? data.doc.contents.length : "not available");
     }
-  }
-  
-  // 即使loaderData为空，也创建一个有效的数据结构
-  const safeData = loaderData || {
-    doc: {
-      id: "criminal-cases",
-      type: "raw",
-      contents: JSON.stringify([
-        {
-          "Title": "R. v. Primeau",
-          "Collection": "Supreme Court Judgments",
-          "Date": "1995-04-13",
-          "Neutral Citation": null,
-          "Case Number": "23613",
-          "Facts": "Example case data"
-        }
-      ]),
-      title: "Criminal Cases Data Viewer",
-      readOnly: true,
-    },
-    json: [
-      {
-        "Title": "R. v. Primeau",
-        "Collection": "Supreme Court Judgments",
-        "Date": "1995-04-13",
-        "Facts": "Example case data"
+    
+    // 如果有JSON数据，输出数组长度信息
+    if (data?.json) {
+      if (Array.isArray(data.json)) {
+        console.log(`JSON is an array with ${data.json.length} items`);
+      } else {
+        console.log("JSON is not an array, it's a:", typeof data.json);
       }
-    ]
-  };
-
-  console.log("Client rendering with data:", 
-    safeData?.doc?.id, 
-    safeData?.json ? "JSON data present" : "No JSON data"
-  );
-
-  return (
-    <JsonDocProvider
-      doc={safeData.doc}
-      key={safeData.doc.id}
-    >
-      <JsonProvider initialJson={safeData.json}>
-        <JsonSchemaProvider>
-          <JsonColumnViewProvider>
-            <JsonSearchProvider>
-              <JsonTreeViewProvider overscan={25}>
-                <div>
+    }
+    
+    // 确保我们总是有一个有效的doc对象，即使原始数据缺失
+    const doc = data?.doc || {
+      id: "fallback-criminal-cases",
+      type: "raw" as const,
+      contents: "[]",
+      title: "Criminal Cases (Fallback)",
+      readOnly: true
+    };
+    
+    // 确保我们总是有有效的JSON数据
+    const jsonData = data?.json || [];
+    
+    // 渲染组件 - 恢复原有的布局结构
+    return (
+      <JsonDocProvider doc={doc}>
+        <JsonProvider initialJson={jsonData}>
+          <JsonSchemaProvider>
+            <JsonTreeViewProvider>
+              <JsonColumnViewProvider>
+                <JsonSearchProvider>
                   <div className="h-screen flex flex-col sm:overflow-hidden">
                     <Header />
                     <div className="bg-slate-50 flex-grow transition dark:bg-slate-900 overflow-y-auto">
                       <div className="main-container flex justify-items-stretch h-full">
-                        <SideBar />
-                        <JsonView>
-                          <Outlet />
-                        </JsonView>
-
-                        <Resizable
-                          isHorizontal={true}
-                          initialSize={500}
-                          minimumSize={280}
-                          maximumSize={900}
-                        >
-                          <div className="info-panel flex-grow h-full">
-                            <InfoPanel />
-                          </div>
-                        </Resizable>
+                        {/* 左侧边栏 */}
+                        <div className="sidebar-container min-w-[280px] w-[280px] h-full overflow-y-auto border-r border-gray-200 dark:border-gray-700">
+                          <SideBar />
+                        </div>
+                        
+                        {/* 中间内容区域 - 包括所有子路由内容 */}
+                        <div className="middle-container flex-1 min-w-0 h-full overflow-y-auto">
+                          <JsonView>
+                            <Outlet />
+                          </JsonView>
+                        </div>
+                        
+                        {/* 右侧信息面板 */}
+                        <div className="info-panel-container min-w-[300px] w-[300px] h-full overflow-y-auto border-l border-gray-200 dark:border-gray-700">
+                          <InfoPanel />
+                        </div>
                       </div>
                     </div>
-
-                    <Footer></Footer>
+                    <Footer />
+                    
+                    {/* 添加调试信息 - 确保调试面板不会挡住UI元素 */}
+                    <div className="fixed bottom-0 right-0 bg-black text-white text-xs p-1 opacity-70 z-10 pointer-events-none">
+                      <div>JSON items: {Array.isArray(jsonData) ? jsonData.length : "N/A"}</div>
+                      <div>Doc ID: {doc.id}</div>
+                    </div>
                   </div>
-                </div>
-              </JsonTreeViewProvider>
-            </JsonSearchProvider>
-          </JsonColumnViewProvider>
-        </JsonSchemaProvider>
-      </JsonProvider>
-    </JsonDocProvider>
-  );
+                </JsonSearchProvider>
+              </JsonColumnViewProvider>
+            </JsonTreeViewProvider>
+          </JsonSchemaProvider>
+        </JsonProvider>
+      </JsonDocProvider>
+    );
+  } catch (renderError) {
+    console.error("Error rendering JsonDocumentRoute:", renderError);
+    
+    // 发生错误时显示基本UI
+    return (
+      <div className="flex justify-center items-center h-screen flex-col space-y-4">
+        <Logo className="h-12 w-12" />
+        <PageNotFoundTitle>Rendering Error</PageNotFoundTitle>
+        <SmallSubtitle>
+          An error occurred while rendering the document viewer.
+          <br />
+          <span className="text-red-500">{String(renderError)}</span>
+          <br />
+          <a href="/j/criminal-cases" className="text-blue-500 underline">
+            Try refreshing
+          </a>
+        </SmallSubtitle>
+      </div>
+    );
+  }
 }
 
 export function CatchBoundary() {

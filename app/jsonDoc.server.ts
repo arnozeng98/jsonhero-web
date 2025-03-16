@@ -19,82 +19,37 @@ export type RawJsonDocument = BaseJsonDocument & {
 
 export type JSONDocument = RawJsonDocument;
 
-// 获取JSON数据
-async function fetchJsonData(): Promise<string> {
+// 从本地服务器获取JSON数据
+export async function fetchJsonData(): Promise<string> {
   try {
-    console.log("Attempting to fetch JSON data");
+    // 使用文档根目录的URL
+    const url = `http://localhost:8787/criminal_cases_facts.json`;
+    console.log("Server-side fetching from:", url);
     
-    // 检查是否在服务器端环境
-    const isServer = typeof window === 'undefined';
-    
-    if (isServer) {
-      console.log("Server-side rendering detected, using built-in JSON data");
-      // 返回包含第一个和第二个案例的简化版本
-      return JSON.stringify([
-        {
-          "Title": "R. v. Primeau",
-          "Collection": "Supreme Court Judgments",
-          "Date": "1995-04-13",
-          "Neutral Citation": null,
-          "Case Number": "23613",
-          "Judges": "Lamer, Antonio; La Forest, Gérard V.; L'Heureux-Dubé, Claire; Sopinka, John; Gonthier, Charles Doherty; Cory, Peter deCarteret; McLachlin, Beverley; Iacobucci, Frank; Major, John C.",
-          "On Appeal From": "Saskatchewan",
-          "Subjects": "Constitutional law\nCourts\nCriminal law",
-          "Statutes and Regulations Cited": [
-            "Criminal Code , R.S.C., 1985, c. C‑46 , s. 784(1) ."
-          ],
-          "Facts": "II.The appellant, Dorne James Primeau, was jointly charged along with Rory Michael Cornish with the first degree murder of Calvin Aubichon. On a separate information, Jerry Allan Lefort was charged with the same murder."
-        },
-        {
-          "Title": "R. v. Feeney",
-          "Collection": "Supreme Court Judgments",
-          "Date": "1997-05-22",
-          "Neutral Citation": null,
-          "Case Number": "24756",
-          "Facts": "Sample facts for this case"
-        }
-      ], null, 2);
-    }
-    
-    // 在客户端环境中使用fetch
-    // 优先尝试从/data目录获取
-    try {
-      const response = await fetch("/criminal_cases_facts.json");
-      
-      if (response.ok) {
-        const content = await response.text();
-        console.log(`Successfully fetched JSON from public path (${content.length} bytes)`);
-        return content;
-      }
-    } catch (error) {
-      console.warn("Failed to fetch from public path, trying absolute path");
-    }
-    
-    // 尝试使用绝对URL
-    const jsonUrl = window.location.origin + "/criminal_cases_facts.json";
-    console.log("Fetching JSON from URL:", jsonUrl);
-    
-    const response = await fetch(jsonUrl);
-    
+    const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`Failed to fetch JSON: ${response.status} ${response.statusText}`);
     }
     
-    const content = await response.text();
-    console.log(`Successfully fetched JSON data (${content.length} bytes)`);
-    return content;
-  } catch (error: any) {
-    console.error("Error fetching JSON data:", error);
+    const text = await response.text();
+    console.log(`Successfully loaded JSON on server-side (${text.length} bytes)`);
     
-    // 在出错时返回基本JSON而不是抛出错误
-    console.log("Returning fallback JSON data");
-    return JSON.stringify([
-      {
-        "Title": "Failed to load data",
-        "Collection": "Error",
-        "Facts": "There was an error loading the JSON data: " + error.message
+    // 尝试解析JSON以验证它并计算项目数量
+    try {
+      const parsed = JSON.parse(text);
+      if (Array.isArray(parsed)) {
+        console.log(`JSON contains ${parsed.length} items`);
+      } else {
+        console.log("JSON is not an array, it's a:", typeof parsed);
       }
-    ], null, 2);
+    } catch (parseError) {
+      console.error("Warning: Could not parse JSON to count items:", parseError);
+    }
+    
+    return text;
+  } catch (error) {
+    console.error("Error fetching JSON:", error);
+    throw error;
   }
 }
 
@@ -133,22 +88,10 @@ export async function getDocument(
       console.log("Successfully fetched JSON data");
     } catch (fetchError) {
       console.error("Error fetching JSON from server:", fetchError);
-      console.log("Using fallback JSON data");
-      // 使用内置的简单JSON作为备份
-      contents = JSON.stringify([
-        {
-          "Title": "R. v. Primeau",
-          "Collection": "Supreme Court Judgments",
-          "Citation": "1995 CanLII 60 (SCC)",
-          "Summary": "Example criminal case"
-        },
-        {
-          "Title": "R. v. Collins",
-          "Collection": "Supreme Court Judgments",
-          "Citation": "1987 CanLII 84 (SCC)",
-          "Summary": "Another example criminal case"
-        }
-      ], null, 2);
+      
+      // 只在开发环境中使用空数组作为后备，这样能明确看出问题
+      console.log("Using empty array as fallback for development");
+      contents = "[]";
     }
     
     if (!isValidJSON(contents)) {
@@ -175,8 +118,8 @@ export async function getDocument(
     return {
       id: slug || "fallback-id",
       type: "raw" as const,
-      contents: JSON.stringify([{"Error": "Failed to load data"}], null, 2),
-      title: "Criminal Cases Data Viewer",
+      contents: "[]", // 空数组作为后备
+      title: "Criminal Cases Data Viewer - Error Loading",
       readOnly: true,
     };
   }
