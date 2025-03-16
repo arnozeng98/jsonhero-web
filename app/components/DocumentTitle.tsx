@@ -1,8 +1,49 @@
 import { PencilAltIcon } from "@heroicons/react/outline";
 import { useEffect, useRef, useState } from "react";
-import { useFetcher } from "remix";
 import { match } from "ts-pattern";
 import { useJsonDoc } from "~/hooks/useJsonDoc";
+
+// 创建一个简单的fetcher对象
+function useFetcher<T = any>() {
+  const [state, setState] = useState<{
+    type: "idle" | "loading" | "submitting" | "done";
+    data: T;
+  }>({
+    type: "idle",
+    data: {} as T
+  });
+
+  return {
+    type: state.type,
+    data: state.data,
+    submit: (formData: any, options: { action: string, method: string }) => {
+      setState(prev => ({ ...prev, type: "submitting" }));
+      
+      if (typeof window !== "undefined" && typeof fetch === "function") {
+        const form = new FormData();
+        for (const key in formData) {
+          form.append(key, formData[key]);
+        }
+        
+        fetch(options.action, {
+          method: options.method,
+          body: form
+        })
+          .then(response => response.json())
+          .then(data => {
+            setState({ type: "done", data });
+          })
+          .catch(err => {
+            console.error("Error submitting data:", err);
+            setState({ 
+              type: "done", 
+              data: { error: "Failed to submit" } as any 
+            });
+          });
+      }
+    }
+  };
+}
 
 export function DocumentTitle() {
   const { doc } = useJsonDoc();
@@ -31,51 +72,54 @@ export function DocumentTitle() {
         </span>
       </div>
     );
-  } else {
-    return (
-      <updateDoc.Form method="post" action={`/actions/${doc.id}/update`}>
-        <div
-          className="flex justify-center items-center w-full"
-          title={doc.title}
-        >
-          <label className="relative block group">
-            <PencilAltIcon className="h-5 w-5 absolute top-1/2 transform -translate-y-1/2 left-3 text-white opacity-0 transition pointer-events-none group-hover:opacity-80 group-focus:opacity-80" />
-            <input
-              ref={ref}
-              className={
-                "min-w-[15vw] border-none text-ellipsis text-slate-300 px-2 pl-10 py-1 rounded-sm bg-transparent placeholder:text-slate-400 focus:bg-black/30 focus:outline-none focus:border-none hover:bg-black hover:bg-opacity-30 hover:cursor-text transition dark:bg-transparent dark:text-slate-200 dark:placeholder:text-slate-400 dark:focus:bg-black dark:focus:bg-opacity-10 dark:hover:bg-black dark:hover:bg-opacity-10"
-              }
-              type="text"
-              name="title"
-              spellCheck="false"
-              placeholder="Name your JSON file"
-              value={editedTitle}
-              onChange={(e) => setEditedTitle(e.target.value)}
-            />
-          </label>
-
-          {match(editedTitle)
-            .with(doc.title, () => (
-              <p className="ml-2 text-transparent">Save</p>
-            ))
-            .with("", () => (
-              <button
-                className="ml-2 text-lime-500 hover:text-lime-600 transition"
-                onClick={() => setEditedTitle(doc.title)}
-              >
-                Reset
-              </button>
-            ))
-            .otherwise(() => (
-              <button
-                type="submit"
-                className="ml-2 text-lime-500 hover:text-lime-600 transition"
-              >
-                Save
-              </button>
-            ))}
-        </div>
-      </updateDoc.Form>
-    );
   }
+
+  return (
+    <div
+      className="flex justify-center items-center w-full relative"
+      title={doc.title}
+    >
+      <span className="absolute left-2 z-10">
+        <PencilAltIcon className="w-4 h-4 text-slate-400" />
+      </span>
+      <input
+        ref={ref}
+        className="min-w-[15vw] focus:w-full border-none text-ellipsis text-slate-300 px-2 pl-10 py-1 rounded-sm bg-transparent placeholder:text-slate-400 focus:bg-black/30 focus:outline-none focus:border-none hover:cursor-text transition dark:bg-transparent dark:text-slate-200 dark:placeholder:text-slate-400 dark:focus:bg-black dark:focus:bg-opacity-10"
+        placeholder="No title"
+        value={editedTitle}
+        onChange={(e) => setEditedTitle(e.target.value)}
+        onBlur={() => {
+          if (editedTitle !== doc.title) {
+            updateDoc.submit(
+              { title: editedTitle },
+              {
+                action: `/actions/updateDoc/${doc.id}`,
+                method: "post",
+              }
+            );
+          }
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            if (editedTitle !== doc.title) {
+              updateDoc.submit(
+                { title: editedTitle },
+                {
+                  action: `/actions/updateDoc/${doc.id}`,
+                  method: "post",
+                }
+              );
+            }
+          }
+        }}
+      />
+      {match(updateDoc)
+        .with({ type: "submitting" }, () => (
+          <span className="absolute right-4 text-xs text-sky-500 italic">
+            Saving...
+          </span>
+        ))
+        .otherwise(() => null)}
+    </div>
+  );
 }

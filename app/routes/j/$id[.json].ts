@@ -1,4 +1,4 @@
-import { json, LoaderFunction } from "remix";
+import { LoaderFunction } from "remix";
 import invariant from "tiny-invariant";
 import { getDocument } from "~/jsonDoc.server";
 
@@ -17,6 +17,10 @@ export const loader: LoaderFunction = async ({ params, request }) => {
     const jsonResponse = await fetch(doc.url);
     return jsonResponse.json();
   } else {
-    return json(JSON.parse(doc.contents));
+    return new Response(doc.contents, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
   }
 };

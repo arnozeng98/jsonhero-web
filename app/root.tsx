@@ -1,15 +1,14 @@
 import {
   Links,
   LiveReload,
-  LoaderFunction,
   Meta,
   Outlet,
   Scripts,
   ScrollRestoration,
   useLoaderData,
   useLocation,
-} from "remix";
-import type { MetaFunction } from "remix";
+} from "@remix-run/react";
+import type { LoaderFunction, MetaFunction } from "@remix-run/cloudflare-workers";
 import clsx from "clsx";
 import {
   NonFlashOfWrongThemeEls,

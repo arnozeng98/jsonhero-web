@@ -1,4 +1,4 @@
-import { json, LoaderFunction, redirect } from "remix";
+import type { LoaderFunction } from "remix";
 import invariant from "tiny-invariant";
 import { sendEvent } from "~/graphJSON.server";
 import {
@@ -6,6 +6,18 @@ import {
   createFromUrl,
   CreateJsonOptions,
 } from "~/jsonDoc.server";
+
+// 自定义的redirect函数
+function redirect(url: string, init: any = {}): Response {
+  let responseInit = init;
+  responseInit.headers = new Headers(responseInit.headers);
+  responseInit.headers.set("Location", url);
+  
+  return new Response(null, {
+    status: 302,
+    ...responseInit,
+  });
+}
 
 export let loader: LoaderFunction = async ({ request, context }) => {
   const url = new URL(request.url);

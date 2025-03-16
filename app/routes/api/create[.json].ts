@@ -1,4 +1,4 @@
-import { ActionFunction, json, LoaderFunction } from "remix";
+import { ActionFunction, LoaderFunction } from "remix";
 import invariant from "tiny-invariant";
 import { sendEvent } from "~/graphJSON.server";
 import { createFromRawJson, CreateJsonOptions } from "~/jsonDoc.server";
@@ -23,7 +23,10 @@ export const action: ActionFunction = async ({ request, context }) => {
   const { title, content, ttl, readOnly } = await request.json();
 
   if (!title || !content) {
-    return json({ message: "Missing title or content" }, 400);
+    return new Response(JSON.stringify({ message: "Missing title or content" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" }
+    });
   }
 
   invariant(typeof title === "string", "title must be a string");
@@ -35,7 +38,10 @@ export const action: ActionFunction = async ({ request, context }) => {
 
   if (typeof ttl === "number") {
     if (ttl < 60) {
-      return json({ message: "ttl must be at least 60 seconds" }, 400);
+      return new Response(JSON.stringify({ message: "ttl must be at least 60 seconds" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" }
+      });
     }
 
     options.ttl = ttl;
@@ -60,10 +66,11 @@ export const action: ActionFunction = async ({ request, context }) => {
     })
   );
 
-  return json(
-    { id: doc.id, title, location: url.toString() },
+  return new Response(
+    JSON.stringify({ id: doc.id, title, location: url.toString() }),
     {
       headers: {
+        "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",
       },
     }

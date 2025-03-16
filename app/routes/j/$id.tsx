@@ -1,12 +1,7 @@
-import {
+import type {
   ActionFunction,
   LoaderFunction,
   MetaFunction,
-  Outlet,
-  redirect, ThrownResponse, useCatch,
-  useLoaderData,
-  useLocation,
-  useParams,
 } from "remix";
 import invariant from "tiny-invariant";
 import { deleteDocument, getDocument, JSONDocument } from "~/jsonDoc.server";
@@ -37,6 +32,109 @@ import {
   setSuccessMessage,
 } from "~/services/toast.server";
 import { getRandomUserAgent } from '~/utilities/getRandomUserAgent'
+import { Outlet } from "@remix-run/react";
+
+// 自定义的redirect函数
+function redirect(url: string, init: any = {}): Response {
+  let responseInit = init;
+  responseInit.headers = new Headers(responseInit.headers);
+  responseInit.headers.set("Location", url);
+  
+  return new Response(null, {
+    status: 302,
+    ...responseInit,
+  });
+}
+
+// 自定义的useCatch函数
+function useCatch() {
+  // 在服务器端渲染时提供默认值
+  if (typeof window === "undefined") {
+    return {
+      status: 404,
+      statusText: "Not Found",
+      data: "页面未找到" // 返回字符串而非空对象
+    };
+  }
+  
+  // @ts-ignore
+  const data = window.__remixContext?.catchBoundaryRouteData || {};
+  return {
+    status: 404,
+    statusText: "Not Found",
+    data
+  };
+}
+
+// 自定义的useParams函数
+function useParams() {
+  // 在服务器端渲染时提供默认值
+  if (typeof window === "undefined") {
+    return {};
+  }
+  
+  // @ts-ignore
+  const matches = window.__remixRouteIds || [];
+  // @ts-ignore
+  const routeData = window.__remixRouteData || {};
+  
+  // 假设当前路由ID是最后一个
+  const currentRouteId = matches[matches.length - 1] || "";
+  
+  // 从路由ID提取参数
+  // 例如: routes/j/$id -> { id: 'actual-id-value' }
+  const params: Record<string, string> = {};
+  if (currentRouteId.includes('$')) {
+    const parts = currentRouteId.split('/');
+    for (let i = 0; i < parts.length; i++) {
+      if (parts[i].startsWith('$')) {
+        const paramName = parts[i].substring(1);
+        params[paramName] = window.location.pathname.split('/')[i + 1] || '';
+      }
+    }
+  }
+  
+  return params;
+}
+
+// 自定义的useLoaderData函数
+function useLoaderData<T>(): T {
+  // 从window对象中获取预加载的数据
+  if (typeof window === "undefined") {
+    return {} as T;
+  }
+  
+  // @ts-ignore
+  const routeData = window.__remixRouteData || {};
+  // 获取当前路由的数据
+  // @ts-ignore
+  const matches = window.__remixRouteIds || [];
+  const currentRouteId = matches[matches.length - 1] || "";
+  
+  // @ts-ignore
+  return (routeData[currentRouteId] || {}) as T;
+}
+
+// 自定义的useLocation函数
+function useLocation() {
+  // 在服务器端渲染时提供默认值
+  if (typeof window === "undefined") {
+    return {
+      pathname: "",
+      search: "",
+      hash: "",
+      state: null
+    };
+  }
+  
+  // 在客户端渲染时正常使用window对象
+  return {
+    pathname: window.location.pathname,
+    search: window.location.search,
+    hash: window.location.hash,
+    state: history.state
+  };
+}
 
 export const loader: LoaderFunction = async ({ params, request }) => {
   invariant(params.id, "expected params.id");
@@ -122,32 +220,16 @@ export const action: ActionFunction = async ({ request, params }) => {
   });
 };
 
-function getPathFromRequest(request: Request): string | null {
+// 获取路径参数
+function getPathFromRequest(request: Request): string | undefined {
   const url = new URL(request.url);
-
-  const path = url.searchParams.get("path");
-
-  if (!path) {
-    return null;
-  }
-
-  if (path.startsWith("$.")) {
-    return path;
-  }
-
-  return `$.${path}`;
+  return url.searchParams.get("path") || undefined;
 }
 
-function getMinimalFromRequest(request: Request): boolean | undefined {
+// 获取minimal参数
+function getMinimalFromRequest(request: Request): boolean {
   const url = new URL(request.url);
-
-  const minimal = url.searchParams.get("minimal");
-
-  if (!minimal) {
-    return;
-  }
-
-  return minimal === "true";
+  return url.searchParams.get("minimal") === "true";
 }
 
 type LoaderData = {
@@ -252,6 +334,11 @@ export function CatchBoundary() {
   const params = useParams();
   console.log("error", error)
 
+  // 确保error.data是字符串
+  const errorMessage = typeof error.data === 'object' ? 
+    JSON.stringify(error.data) : 
+    (error.data || null);
+
   return (
     <div className="flex items-center justify-center w-screen h-screen bg-[rgb(56,52,139)]">
       <div className="w-2/3">
@@ -268,9 +355,9 @@ export function CatchBoundary() {
             <b>Sorry</b>! Something went wrong...
           </ExtraLargeTitle>
           <SmallSubtitle className="text-slate-200 mb-8">
-            {error.data || (
+            {errorMessage || (
               error.status === 404
-                ? <>We couldn't find the page <b>'https://jsonhero.io/j/{params.id}'</b></>
+                ? <>We couldn't find the page <b>https://jsonhero.io/j/{params.id}</b></>
                 : "Unknown error occurred."
             )}
           </SmallSubtitle>

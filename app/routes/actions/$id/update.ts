@@ -1,4 +1,4 @@
-import { ActionFunction, json } from "remix";
+import { ActionFunction } from "remix";
 import invariant from "tiny-invariant";
 import { sendEvent } from "~/graphJSON.server";
 import { updateDocument } from "~/jsonDoc.server";
@@ -13,7 +13,12 @@ export const action: ActionFunction = async ({ params, request, context }) => {
   try {
     const document = await updateDocument(params.id, title);
 
-    if (!document) return json({ error: "No document with that slug" });
+    if (!document) {
+      return new Response(
+        JSON.stringify({ error: "No document with that slug" }), 
+        { headers: { "Content-Type": "application/json" } }
+      );
+    }
 
     context.waitUntil(
       sendEvent({
@@ -23,12 +28,21 @@ export const action: ActionFunction = async ({ params, request, context }) => {
       })
     );
 
-    return json(document);
+    return new Response(
+      JSON.stringify(document),
+      { headers: { "Content-Type": "application/json" } }
+    );
   } catch (error) {
     if (error instanceof Error) {
-      return json({ error: error.message });
+      return new Response(
+        JSON.stringify({ error: error.message }),
+        { headers: { "Content-Type": "application/json" } }
+      );
     } else {
-      return json({ error: "Unknown error" });
+      return new Response(
+        JSON.stringify({ error: "Unknown error" }),
+        { headers: { "Content-Type": "application/json" } }
+      );
     }
   }
 };

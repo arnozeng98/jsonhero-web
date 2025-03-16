@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
-import { useFetcher } from "remix";
+import { useFetcher } from "@remix-run/react";
 
 export type Theme = "dark" | "light";
 
@@ -43,7 +43,21 @@ export function ThemeProvider({
   });
 
   const mountRun = useRef(false);
-  const persistTheme = useFetcher();
+  const persistTheme = {
+    submit: (formData: any, options: any) => {
+      if (typeof window === "object" && typeof fetch === "function") {
+        const formDataObj = new FormData();
+        for (const key in formData) {
+          formDataObj.append(key, formData[key]);
+        }
+        
+        fetch(options.action, {
+          method: options.method,
+          body: formDataObj
+        }).catch(console.error);
+      }
+    }
+  };
 
   useEffect(() => {
     if (!mountRun.current) {

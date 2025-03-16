@@ -30,6 +30,9 @@ module.exports = {
         sans: ["Source Sans Pro", "sans-serif"],
         mono: ["Roboto Mono", "monospace"],
       },
+      backgroundImage: {
+        'eye-icon': "url('../app/assets/svgs/EyeIcon.svg')",
+      },
     },
   },
   variants: {

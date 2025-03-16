@@ -1,4 +1,3 @@
-import { redirect } from "remix";
 import type { ActionFunction, LoaderFunction } from "remix";
 import invariant from "tiny-invariant";
 import { createFromUrl, createFromUrlOrRawJson } from "~/jsonDoc.server";
@@ -8,6 +7,18 @@ import {
   getSession,
   setErrorMessage,
 } from "../../services/toast.server";
+
+// 自定义的redirect函数
+function redirect(url: string, init: any = {}): Response {
+  let responseInit = init;
+  responseInit.headers = new Headers(responseInit.headers);
+  responseInit.headers.set("Location", url);
+  
+  return new Response(null, {
+    status: 302,
+    ...responseInit,
+  });
+}
 
 type CreateFromUrlError = {
   jsonUrl?: boolean;
