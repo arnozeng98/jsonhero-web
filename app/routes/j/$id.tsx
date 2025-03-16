@@ -410,7 +410,7 @@ export default function JsonDocumentRoute() {
                     <div className="bg-slate-50 flex-grow transition dark:bg-slate-900 overflow-y-auto">
                       <div className="main-container flex justify-items-stretch h-full">
                         {/* 左侧边栏 */}
-                        <div className="sidebar-container min-w-[280px] w-[280px] h-full overflow-y-auto border-r border-gray-200 dark:border-gray-700">
+                        <div className="sidebar-container min-w-[50px] w-[50px] h-full overflow-y-auto border-r border-gray-200 dark:border-gray-700">
                           <SideBar />
                         </div>
                         
@@ -422,7 +422,7 @@ export default function JsonDocumentRoute() {
                         </div>
                         
                         {/* 右侧信息面板 */}
-                        <div className="info-panel-container min-w-[300px] w-[300px] h-full overflow-y-auto border-l border-gray-200 dark:border-gray-700">
+                        <div className="info-panel-container min-w-[600px] w-[600px] h-full overflow-y-auto border-l border-gray-200 dark:border-gray-700">
                           <InfoPanel />
                         </div>
                       </div>
